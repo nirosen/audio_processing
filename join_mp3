@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ $# -lt 2 ]; then
+  echo "Usage: join_mp3 <file1.mp3> <file2.mp3> [file3.mp3 ...] [--output name.mp3]"
+  echo "Example: join_mp3 part1.mp3 part2.mp3"
+  echo "Example: join_mp3 part1.mp3 part2.mp3 part3.mp3 --output combined.mp3"
+  exit 1
+fi
+
+if ! command -v ffmpeg &>/dev/null; then
+  echo "Error: ffmpeg required. Install with: brew install ffmpeg"
+  exit 1
+fi
+
+# Parse args: collect files and optional --output
+FILES=()
+OUTPUT=""
+while [ $# -gt 0 ]; do
+  if [ "$1" = "--output" ]; then
+    shift
+    OUTPUT="$1"
+  else
+    if [ ! -f "$1" ]; then
+      echo "Error: file not found: $1"
+      exit 1
+    fi
+    FILES+=("$1")
+  fi
+  shift
+done
+
+if [ ${#FILES[@]} -lt 2 ]; then
+  echo "Error: need at least 2 files to join"
+  exit 1
+fi
+
+# Default output name: first file basename + last file basename
+if [ -z "$OUTPUT" ]; then
+  DIR=$(dirname "${FILES[0]}")
+  BASE1=$(basename "${FILES[0]}" .mp3)
+  BASE_LAST=$(basename "${FILES[${#FILES[@]}-1]}" .mp3)
+  OUTPUT="${DIR}/${BASE1}+${BASE_LAST}.mp3"
+fi
+
+# Build concat list
+LISTFILE=$(mktemp "${TMPDIR:-/tmp}/join_mp3_XXXXXX.txt")
+trap "rm -f '$LISTFILE'" EXIT
+
+for f in "${FILES[@]}"; do
+  echo "file '$(realpath "$f")'" >> "$LISTFILE"
+done
+
+echo "Joining ${#FILES[@]} files:"
+for f in "${FILES[@]}"; do
+  echo "  $(basename "$f")"
+done
+
+ffmpeg -y -f concat -safe 0 -i "$LISTFILE" -c copy "$OUTPUT" 2>/dev/null
+
+echo "Done: $OUTPUT"

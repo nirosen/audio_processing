@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ $# -lt 2 ]; then
+  echo "Usage: change_vol_mp3 <file.mp3> <percent>"
+  echo "Example: change_vol_mp3 song.mp3 150  (increase volume by 150%)"
+  exit 1
+fi
+
+INPUT="$1"
+PERCENT="$2"
+
+if [ ! -f "$INPUT" ]; then
+  echo "Error: file not found: $INPUT"
+  exit 1
+fi
+
+if ! command -v ffmpeg &>/dev/null; then
+  echo "Error: ffmpeg required. Install with: brew install ffmpeg"
+  exit 1
+fi
+
+BASENAME=$(basename "$INPUT" .mp3)
+DIR=$(dirname "$INPUT")
+OUTPUT="${DIR}/${BASENAME}_${PERCENT}pct.mp3"
+
+FACTOR=$(python3 -c "print($PERCENT / 100)")
+
+echo "Adjusting volume: ${PERCENT}% (${FACTOR}x) on $(basename "$INPUT")"
+ffmpeg -y -i "$INPUT" -filter:a "volume=${FACTOR}" -codec:a libmp3lame -b:a 128k "$OUTPUT" 2>/dev/null
+echo "Done: $OUTPUT"

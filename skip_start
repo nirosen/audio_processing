@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ $# -lt 2 ]; then
+  echo "Usage: skip_start <file> <minutes> [volume_percent]"
+  echo "Example: skip_start audiobook.mp3 45        (from 45min to end)"
+  echo "Example: skip_start audiobook.mp3 45 200    (from 45min to end, 200% volume)"
+  echo "Example: skip_start audiobook.m4b 110 150   (from 1h50m to end, 150% volume)"
+  exit 1
+fi
+
+INPUT="$1"
+MINUTES="$2"
+PERCENT="${3:-}"
+
+if [ ! -f "$INPUT" ]; then
+  echo "Error: file not found: $INPUT"
+  exit 1
+fi
+
+if ! command -v ffmpeg &>/dev/null; then
+  echo "Error: ffmpeg required. Install with: brew install ffmpeg"
+  exit 1
+fi
+
+# Strip any extension for basename
+BASENAME=$(basename "$INPUT")
+BASENAME="${BASENAME%.*}"
+DIR=$(dirname "$INPUT")
+
+# Convert minutes to HH:MM:SS
+HOURS=$((MINUTES / 60))
+MINS=$((MINUTES % 60))
+FF_START=$(printf "%02d:%02d:00" "$HOURS" "$MINS")
+
+if [ -n "$PERCENT" ]; then
+  FACTOR=$(python3 -c "print($PERCENT / 100)")
+  OUTPUT="${DIR}/${BASENAME}_${MINUTES}.end_${PERCENT}pct.mp3"
+  echo "Skipping first ${MINUTES}min of $(basename "$INPUT"), volume ${PERCENT}% (${FACTOR}x)"
+  ffmpeg -y -i "$INPUT" -ss "$FF_START" \
+    -filter:a "volume=${FACTOR}" -codec:a libmp3lame -q:a 2 \
+    "$OUTPUT" 2>/dev/null
+else
+  OUTPUT="${DIR}/${BASENAME}_${MINUTES}.end.mp3"
+  echo "Skipping first ${MINUTES}min of $(basename "$INPUT")"
+  ffmpeg -y -i "$INPUT" -ss "$FF_START" \
+    -codec:a libmp3lame -q:a 2 \
+    "$OUTPUT" 2>/dev/null
+fi
+
+echo "Done: $OUTPUT"

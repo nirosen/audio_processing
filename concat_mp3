@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ $# -lt 2 ]; then
+  echo "Usage: concat_mp3 <dir> <range> [output.mp3]"
+  echo "Example: concat_mp3 ./my-chapters 1-30 merged.mp3"
+  exit 1
+fi
+
+DIR="$1"
+RANGE="$2"
+START="${RANGE%-*}"
+END="${RANGE#*-}"
+DIRNAME=$(basename "${DIR%/}")
+OUTPUT="${3:-${DIRNAME}_${START}-${END}.mp3}"
+
+if [ ! -d "$DIR" ]; then
+  echo "Error: directory not found: $DIR"
+  exit 1
+fi
+
+if ! command -v ffmpeg &>/dev/null; then
+  echo "Error: ffmpeg required. Install with: brew install ffmpeg"
+  exit 1
+fi
+
+# Find the zero-padding used in the directory
+SAMPLE=$(ls "$DIR"/*.mp3 2>/dev/null | head -1)
+if [ -z "$SAMPLE" ]; then
+  echo "Error: no MP3 files found in $DIR"
+  exit 1
+fi
+NAME=$(basename "$SAMPLE" .mp3)
+PAD=${#NAME}
+
+# Build ffmpeg concat list
+TMPFILE=$(mktemp)
+trap "rm -f '$TMPFILE'" EXIT
+
+COUNT=0
+for i in $(seq "$START" "$END"); do
+  FILE="$DIR/$(printf "%0${PAD}d" "$i").mp3"
+  if [ ! -f "$FILE" ]; then
+    echo "Error: missing file: $FILE"
+    exit 1
+  fi
+  echo "file '$FILE'" >> "$TMPFILE"
+  COUNT=$((COUNT + 1))
+done
+
+echo "Concatenating $COUNT files ($START-$END) from: $DIR/"
+ffmpeg -y -f concat -safe 0 -i "$TMPFILE" -c copy "$OUTPUT" 2>/dev/null
+echo "Done: $OUTPUT"

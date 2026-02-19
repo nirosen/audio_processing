@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ $# -lt 2 ]; then
+  echo "Usage: sample_mp3 <file.mp3> <start>-<end>"
+  echo "Example: sample_mp3 song.mp3 0:00-1:30  (h:mm format)"
+  exit 1
+fi
+
+INPUT="$1"
+RANGE="$2"
+START="${RANGE%-*}"
+END="${RANGE#*-}"
+
+if [ ! -f "$INPUT" ]; then
+  echo "Error: file not found: $INPUT"
+  exit 1
+fi
+
+if ! command -v ffmpeg &>/dev/null; then
+  echo "Error: ffmpeg required. Install with: brew install ffmpeg"
+  exit 1
+fi
+
+BASENAME=$(basename "$INPUT" .mp3)
+DIR=$(dirname "$INPUT")
+# Replace colons with dots for filename safety
+SAFE_START="${START//:/.}"
+SAFE_END="${END//:/.}"
+OUTPUT="${DIR}/${BASENAME}_${SAFE_START}-${SAFE_END}.mp3"
+
+# Convert h:mm to HH:MM:SS for ffmpeg
+to_ffmpeg_time() {
+  local t="$1"
+  local h="${t%%:*}"
+  local mm="${t#*:}"
+  printf "%02d:%02d:00" "$h" "$mm"
+}
+
+FF_START=$(to_ffmpeg_time "$START")
+FF_END=$(to_ffmpeg_time "$END")
+
+echo "Sampling $(basename "$INPUT"): $START to $END ($FF_START - $FF_END)"
+ffmpeg -y -i "$INPUT" -ss "$FF_START" -to "$FF_END" -c copy "$OUTPUT" 2>/dev/null
+echo "Done: $OUTPUT"

@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ $# -lt 3 ]; then
+  echo "Usage: concat_parts <file1> <file2> <start_minutes> [duration_minutes] [volume_percent]"
+  echo "Example: concat_parts part01.mp3 part02.mp3 45           (from 45min of part01 through end of part02)"
+  echo "Example: concat_parts part01.mp3 part02.mp3 45 60        (from 45min of part01, 60min total)"
+  echo "Example: concat_parts part01.mp3 part02.mp3 45 60 200    (same, with 200% volume)"
+  exit 1
+fi
+
+FILE1="$1"
+FILE2="$2"
+START_MIN="$3"
+DURATION_MIN="${4:-}"
+PERCENT="${5:-}"
+
+for f in "$FILE1" "$FILE2"; do
+  if [ ! -f "$f" ]; then
+    echo "Error: file not found: $f"
+    exit 1
+  fi
+done
+
+if ! command -v ffmpeg &>/dev/null; then
+  echo "Error: ffmpeg required. Install with: brew install ffmpeg"
+  exit 1
+fi
+
+# Convert minutes to HH:MM:SS
+to_hhmmss() {
+  local m="$1"
+  local h=$((m / 60))
+  local mm=$((m % 60))
+  printf "%02d:%02d:00" "$h" "$mm"
+}
+
+FF_START=$(to_hhmmss "$START_MIN")
+
+# Build output filename from basenames
+BASE1=$(basename "$FILE1")
+BASE1="${BASE1%.*}"
+BASE2=$(basename "$FILE2")
+BASE2="${BASE2%.*}"
+DIR=$(dirname "$FILE1")
+
+# Estimate endpoint in file2
+if [ -n "$DURATION_MIN" ]; then
+  DUR_SEC=$((DURATION_MIN * 60))
+  DUR_FLAG="-t $DUR_SEC"
+  DUR1=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$FILE1")
+  REMAINING1=$(python3 -c "print(max(0, $DUR1 - $START_MIN * 60))")
+  INTO2=$(python3 -c "print(max(0, int(($DURATION_MIN * 60 - $REMAINING1) / 60)))")
+  DUR_TAG="_${DURATION_MIN}min"
+else
+  DUR_FLAG=""
+  INTO2="end"
+  DUR_TAG=""
+fi
+
+if [ -n "$PERCENT" ]; then
+  FACTOR=$(python3 -c "print($PERCENT / 100)")
+  VOL_FLAG="-filter:a volume=${FACTOR}"
+  VOL_TAG="_${PERCENT}pct"
+else
+  VOL_FLAG=""
+  VOL_TAG=""
+fi
+
+OUTPUT="${DIR}/${BASE1}.${START_MIN}-${BASE2}.${INTO2}${VOL_TAG}${DUR_TAG}.mp3"
+
+# Step 1: trim file1 from start offset to end
+TMPFILE=$(mktemp "${TMPDIR:-/tmp}/concat_parts_XXXXXX.mp3")
+LISTFILE=$(mktemp "${TMPDIR:-/tmp}/concat_list_XXXXXX.txt")
+trap "rm -f '$TMPFILE' '$LISTFILE'" EXIT
+
+echo "Concat: $(basename "$FILE1") from ${START_MIN}min + $(basename "$FILE2"), ${DURATION_MIN:+${DURATION_MIN}min total, }${PERCENT:+${PERCENT}% volume}"
+ffmpeg -y -i "$FILE1" -ss "$FF_START" -codec:a libmp3lame -q:a 2 "$TMPFILE" 2>/dev/null
+
+# Step 2: concat using demuxer (not filter_complex), apply volume and duration
+echo "file '$TMPFILE'" > "$LISTFILE"
+echo "file '$(realpath "$FILE2")'" >> "$LISTFILE"
+
+ffmpeg -y -f concat -safe 0 -i "$LISTFILE" \
+  $VOL_FLAG $DUR_FLAG -codec:a libmp3lame -q:a 2 \
+  "$OUTPUT" 2>/dev/null
+
+echo "Done: $OUTPUT"

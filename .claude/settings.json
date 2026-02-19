@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*/split_m4b *)",
+      "Bash(*/concat_mp3 *)",
+      "Bash(*/change_vol_mp3 *)",
+      "Bash(*/sample_mp3 *)",
+      "Bash(ffmpeg *)",
+      "Bash(ffprobe *)",
+      "Bash(python3 *)",
+      "Bash(chmod +x *)",
+      "Bash(mkdir -p *)",
+      "Bash(mv *)",
+      "Bash(cp *)",
+      "Bash(ls *)",
+      "Bash(rm *_150pct*)",
+      "Bash(rm *_200pct*)",
+      "Bash(rm *_trimmed*)",
+      "Bash(git status *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(gh *)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /*)"
+    ],
+    "additionalDirectories": [
+      "../src_m4b_files",
+      "../src_mp3",
+      "../splitted_m4b_dirs",
+      "../final_single_mp3_vol"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"[$(date '+%H:%M:%S')] $CLAUDE_TOOL_NAME completed\" >> /tmp/audio_processing.log"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+  echo "Usage: split_m4b <file.m4b> [output_dir]"
+  exit 1
+fi
+
+INPUT="$1"
+OUTDIR="${2:-${INPUT%.m4b}}"
+
+if [ ! -f "$INPUT" ]; then
+  echo "Error: file not found: $INPUT"
+  exit 1
+fi
+
+if ! command -v ffprobe &>/dev/null || ! command -v ffmpeg &>/dev/null; then
+  echo "Error: ffmpeg/ffprobe required. Install with: brew install ffmpeg"
+  exit 1
+fi
+
+mkdir -p "$OUTDIR"
+
+CHAPTERS=$(ffprobe -i "$INPUT" -print_format json -show_chapters 2>/dev/null)
+COUNT=$(echo "$CHAPTERS" | python3 -c "import json,sys; print(len(json.load(sys.stdin)['chapters']))")
+
+echo "Splitting $COUNT chapters from: $(basename "$INPUT")"
+echo "Output: $OUTDIR/"
+
+echo "$CHAPTERS" | python3 -c "
+import json, sys, subprocess
+
+data = json.load(sys.stdin)
+chapters = data['chapters']
+total = len(chapters)
+pad = len(str(total))
+
+for i, ch in enumerate(chapters):
+    num = str(i + 1).zfill(pad)
+    start = ch['start_time']
+    end = ch['end_time']
+    outfile = '$OUTDIR/' + num + '.mp3'
+    print(f'  [{num}/{str(total).zfill(pad)}] {ch[\"tags\"][\"title\"]}')
+    subprocess.run([
+        'ffmpeg', '-y', '-i', '$INPUT',
+        '-ss', start, '-to', end,
+        '-map', '0:a',
+        '-codec:a', 'libmp3lame', '-b:a', '128k',
+        outfile
+    ], capture_output=True)
+
+print(f'Done. {total} files written to: $OUTDIR/')
+"
