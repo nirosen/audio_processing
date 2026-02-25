@@ -1,28 +1,45 @@
 # Codex Scripts
 
-Generic scripts for creating audiobook tracks with trim, volume change, and speed change.
+Generic scripts for audiobook trim/continuation workflows.
 
 ## Scripts
 
-- `create_track.sh`: Main script. Generates a processed MP3 track.
-- `make_resume_track.sh`: Convenience wrapper with optional defaults.
+- `create_track.sh`
+  - Build a track from a specific start time and duration.
+  - Supports volume and speed changes.
+- `make_resume_track.sh`
+  - Thin convenience wrapper around `create_track.sh`.
+- `create_continuation_track.sh`
+  - Build a continuation track based on minutes already read.
+  - Can span multiple source files to fill a target duration.
+  - Supports volume and speed changes.
 
 ## Usage
 
-Main script:
+Create a fixed segment:
 
 ```bash
 ./codex/create_track.sh "input.mp3" "output.mp3" "01:09:00" "01:30:00" 200 75
 ```
 
-Wrapper script:
+Create a continuation from one source file (from minute 20 to end/target):
 
 ```bash
-./codex/make_resume_track.sh "input.mp3" "output.mp3"
+./codex/create_continuation_track.sh \
+  --listen-min 20 \
+  --output "final_single_mp3_vol/book_segment_20.end.mp3" \
+  "final_single_mp3_vol/book_segment.mp3"
 ```
 
-Wrapper optional parameters:
+Create a 60-minute continuation across multiple files:
 
 ```bash
-./codex/make_resume_track.sh "input.mp3" "output.mp3" "01:09:00" "01:30:00" 200 75
+./codex/create_continuation_track.sh \
+  --listen-min 40 \
+  --target-min 60 \
+  --volume-pct 200 \
+  --output "final_single_mp3_vol/book_continuation_40.end.mp3" \
+  "src_mp3/book_part_02.mp3" \
+  "src_mp3/book_part_03.mp3" \
+  "src_mp3/book_part_04.mp3"
 ```
