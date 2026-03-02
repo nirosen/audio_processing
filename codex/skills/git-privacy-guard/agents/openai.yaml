@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git Privacy Guard"
+  short_description: "Block pushes that contain personal details"
+  default_prompt: "Use $git-privacy-guard to scan outgoing commits and prevent personal details from being pushed."

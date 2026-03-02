@@ -1,0 +1,10 @@
+# One sensitive term or phrase per line.
+# This file is a template only.
+# Copy values into <repo>/.privacy-denylist.txt (which is gitignored).
+
+# Example placeholders:
+author full name
+book title phrase
+series name
+internal project codename
+customer full name
