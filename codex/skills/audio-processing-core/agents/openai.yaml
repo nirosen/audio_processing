@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audio Processing Core"
+  short_description: "Run core audiobook split/trim/merge/volume workflows"
+  default_prompt: "Use $audio-processing-core to process my audiobook with split, trim, concat, and volume commands."

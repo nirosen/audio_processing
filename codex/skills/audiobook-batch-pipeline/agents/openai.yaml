@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audiobook Batch Pipeline"
+  short_description: "Run parallel multi-book audiobook processing pipelines"
+  default_prompt: "Use $audiobook-batch-pipeline to process multiple audiobooks in parallel and move outputs to final folders."
