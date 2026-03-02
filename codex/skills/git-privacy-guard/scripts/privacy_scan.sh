@@ -127,6 +127,45 @@ scan_working_tree() {
   done
 }
 
+scan_diff_range() {
+  local pat=""
+  local added_line_hits=""
+  local added_path_hits=""
+  local added_lines=""
+  local added_paths=""
+  local diff_args=("$@")
+
+  added_lines="$(
+    git -C "$repo" diff --no-color -U0 "${diff_args[@]}" -- . 2>/dev/null \
+      | grep '^+' \
+      | grep -v '^+++' \
+      || true
+  )"
+
+  added_paths="$(
+    git -C "$repo" diff --name-status --diff-filter=AR "${diff_args[@]}" -- . 2>/dev/null \
+      | awk -F '\t' '{print $NF}' \
+      || true
+  )"
+
+  for pat in "${patterns[@]}"; do
+    added_line_hits="$(printf '%s\n' "$added_lines" | grep -nF -- "$pat" || true)"
+    added_path_hits="$(printf '%s\n' "$added_paths" | grep -nFi -- "$pat" || true)"
+
+    if [[ -n "$added_line_hits" ]]; then
+      echo "added-content match for pattern: $pat"
+      echo "$added_line_hits"
+      hits=$((hits + 1))
+    fi
+
+    if [[ -n "$added_path_hits" ]]; then
+      echo "added-path match for pattern: $pat"
+      echo "$added_path_hits"
+      hits=$((hits + 1))
+    fi
+  done
+}
+
 case "$scope" in
   outgoing)
     upstream="$(git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)"
@@ -137,23 +176,22 @@ case "$scope" in
       fi
     fi
 
-    commits=()
     if [[ -n "$upstream" ]]; then
+      commits=()
       while IFS= read -r line; do
         [[ -n "$line" ]] && commits+=("$line")
       done < <(git -C "$repo" rev-list "${upstream}..HEAD")
+
+      if [[ ${#commits[@]} -eq 0 ]]; then
+        echo "No outgoing commits to scan."
+        exit 0
+      fi
+
+      scan_diff_range "${upstream}..HEAD"
     else
-      commits=("HEAD")
+      empty_tree="$(git -C "$repo" hash-object -t tree /dev/null)"
+      scan_diff_range "$empty_tree" "HEAD"
     fi
-
-    if [[ ${#commits[@]} -eq 0 ]]; then
-      echo "No outgoing commits to scan."
-      exit 0
-    fi
-
-    for commit in "${commits[@]}"; do
-      scan_commit "$commit"
-    done
     ;;
   history)
     commits=()
