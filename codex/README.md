@@ -11,7 +11,10 @@ Generic scripts for audiobook trim/continuation workflows.
   - Thin convenience wrapper around `create_track.sh`.
 - `create_continuation_track.sh`
   - Build a continuation track based on minutes already read.
-  - Can span multiple source files to fill a target duration.
+  - Can span multiple source files.
+  - Supports two modes:
+    - fixed-length cap via `--target-min`
+    - uncapped to end of provided sources (omit `--target-min`)
   - Supports volume and speed changes.
   - Supports auto naming format:
     `<Title> - P<part>+<offset>_vol<volume>_speed<speed>.mp3`
@@ -24,7 +27,7 @@ Create a fixed segment:
 ./codex/create_track.sh "input.mp3" "output.mp3" "01:09:00" "01:30:00" 200 75
 ```
 
-Create a continuation from one source file (from minute 20 to end/target):
+Create an uncapped continuation from one source file (from minute 20 to end):
 
 ```bash
 ./codex/create_continuation_track.sh \
@@ -44,6 +47,20 @@ Create a 60-minute continuation across multiple files:
   "src_mp3/book_part_02.mp3" \
   "src_mp3/book_part_03.mp3" \
   "src_mp3/book_part_04.mp3"
+```
+
+Create an uncapped continuation across parts (cut from point to end, then append next part):
+
+```bash
+./codex/create_continuation_track.sh \
+  --listen-min 54 \
+  --volume-pct 200 \
+  --speed-pct 100 \
+  --name-title "Series Title" \
+  --part 5 \
+  --offset-label "54_to_P06.end" \
+  "src_mp3/book_part_05.mp3" \
+  "src_mp3/book_part_06.mp3"
 ```
 
 Create a 60-minute continuation with automatic standardized naming:

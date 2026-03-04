@@ -10,7 +10,9 @@ Run commands from `/Users/nrosen/code/audiobooks/audio_processing`.
 ## Workflow
 
 1. Determine listened minutes in the first source file.
-2. Set target length in minutes. Default to 60 when unspecified.
+2. Choose output mode:
+   - Fixed-length mode: add `--target-min` (example: 60).
+   - To-end mode: omit `--target-min` to run until all provided sources end.
 3. Order source files from current segment to subsequent parts.
 4. Run `./codex/create_continuation_track.sh` with required arguments.
 5. Validate resulting duration with `ffprobe`.
@@ -57,6 +59,20 @@ Fixed-length continuation across parts:
   "src_mp3_books/Part 04.mp3"
 ```
 
+To-end continuation (cut from point to end, then append next parts):
+
+```bash
+./codex/create_continuation_track.sh \
+  --listen-min 54 \
+  --volume-pct 200 \
+  --speed-pct 100 \
+  --name-title "Series Title" \
+  --part 5 \
+  --offset-label "54_to_P06.end" \
+  "src_mp3_books/Part 05.mp3" \
+  "src_mp3_books/Part 06.mp3"
+```
+
 Duration check:
 
 ```bash
@@ -65,6 +81,7 @@ ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 "final_sing
 
 ## Guardrails
 
-- Use numeric values for `--listen-min`, `--target-min`, `--volume-pct`, and `--speed-pct`.
+- Use numeric values for `--listen-min`, `--target-min` (when present), `--volume-pct`, and `--speed-pct`.
 - Keep source files in playback order.
 - Prefer auto naming with `--name-title` (+ optional `--part`) to keep filenames consistent.
+- If the user says "to end then append", do not pass `--target-min`.

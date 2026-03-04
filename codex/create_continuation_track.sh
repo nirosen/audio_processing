@@ -17,7 +17,8 @@ Options:
                             Defaults to listened minutes (e.g. 15, 66m43s).
   --out-dir <dir>           Optional. Output directory for auto name.
                             Default: final_single_mp3_vol
-  --target-min <minutes>    Optional. Output length in minutes. Default: 60.
+  --target-min <minutes>    Optional. Output length cap in minutes.
+                            If omitted, output runs to end of provided sources.
   --volume-pct <percent>    Optional. Volume multiplier in percent. Default: 100.
   --speed-pct <percent>     Optional. Playback speed in percent. Default: 100.
 
@@ -26,6 +27,15 @@ Examples:
     --listen-min 20 \
     --output "final_single_mp3_vol/Next Segment.mp3" \
     "final_single_mp3_vol/Current Segment.mp3"
+
+  ./codex/create_continuation_track.sh \
+    --listen-min 15 \
+    --volume-pct 200 \
+    --speed-pct 100 \
+    --name-title "Series Title" \
+    --part 3 \
+    "src_mp3/Part 03.mp3" \
+    "src_mp3/Part 04.mp3"
 
   ./codex/create_continuation_track.sh \
     --listen-min 15 \
@@ -54,7 +64,7 @@ name_title=""
 part_override=""
 offset_label=""
 out_dir="final_single_mp3_vol"
-target_min="60"
+target_min=""
 volume_pct="100"
 speed_pct="100"
 sources=()
@@ -135,7 +145,7 @@ if ! [[ "$listen_min" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
   exit 1
 fi
 
-if ! [[ "$target_min" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+if [[ -n "$target_min" ]] && ! [[ "$target_min" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
   echo "Error: --target-min must be numeric."
   exit 1
 fi
@@ -205,10 +215,14 @@ build_atempo_chain() {
 }
 
 offset_sec="$(awk -v m="$listen_min" 'BEGIN { printf "%.6f", m*60 }')"
-target_sec="$(awk -v m="$target_min" 'BEGIN { printf "%.6f", m*60 }')"
 volume_factor="$(awk -v p="$volume_pct" 'BEGIN { printf "%.6f", p/100 }')"
 speed_factor="$(awk -v p="$speed_pct" 'BEGIN { printf "%.10f", p/100 }')"
 atempo_chain="$(build_atempo_chain "$speed_factor")"
+
+target_sec=""
+if [[ -n "$target_min" ]]; then
+  target_sec="$(awk -v m="$target_min" 'BEGIN { printf "%.6f", m*60 }')"
+fi
 
 if [[ -z "$output" ]]; then
   part_num=""
@@ -260,13 +274,23 @@ fi
 
 mkdir -p "$(dirname "$output")"
 
-ffmpeg -y -v error \
-  "${input_args[@]}" \
-  -filter_complex "$filter_complex" \
-  -map "[aout]" \
-  -t "$target_sec" \
-  -c:a libmp3lame \
-  -q:a 2 \
-  "$output"
+if [[ -n "$target_sec" ]]; then
+  ffmpeg -y -v error \
+    "${input_args[@]}" \
+    -filter_complex "$filter_complex" \
+    -map "[aout]" \
+    -t "$target_sec" \
+    -c:a libmp3lame \
+    -q:a 2 \
+    "$output"
+else
+  ffmpeg -y -v error \
+    "${input_args[@]}" \
+    -filter_complex "$filter_complex" \
+    -map "[aout]" \
+    -c:a libmp3lame \
+    -q:a 2 \
+    "$output"
+fi
 
 echo "Created: $output"
