@@ -4,11 +4,19 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  create_continuation_track.sh --listen-min <minutes> --output <output.mp3> [options] <source1.mp3> [source2.mp3 ...]
+  create_continuation_track.sh --listen-min <minutes> [--output <output.mp3> | --name-title <title>] [options] <source1.mp3> [source2.mp3 ...]
 
 Options:
   --listen-min <minutes>    Required. Minutes already read in source1.
-  --output <path>           Required. Output MP3 path.
+  --output <path>           Optional. Explicit output MP3 path.
+  --name-title <title>      Optional. Auto-generate output name:
+                            <title> - Pxx+offset_volNNN_speedNNN.mp3
+  --part <number>           Optional. Part number for auto name (e.g. 3 -> P03).
+                            If omitted, inferred from source1 filename.
+  --offset-label <label>    Optional. Override offset label in auto name.
+                            Defaults to listened minutes (e.g. 15, 66m43s).
+  --out-dir <dir>           Optional. Output directory for auto name.
+                            Default: final_single_mp3_vol
   --target-min <minutes>    Optional. Output length in minutes. Default: 60.
   --volume-pct <percent>    Optional. Volume multiplier in percent. Default: 100.
   --speed-pct <percent>     Optional. Playback speed in percent. Default: 100.
@@ -18,6 +26,16 @@ Examples:
     --listen-min 20 \
     --output "final_single_mp3_vol/Next Segment.mp3" \
     "final_single_mp3_vol/Current Segment.mp3"
+
+  ./codex/create_continuation_track.sh \
+    --listen-min 15 \
+    --target-min 60 \
+    --volume-pct 200 \
+    --speed-pct 100 \
+    --name-title "Series Title" \
+    --part 3 \
+    "src_mp3/Part 03.mp3" \
+    "src_mp3/Part 04.mp3"
 
   ./codex/create_continuation_track.sh \
     --listen-min 40 \
@@ -32,6 +50,10 @@ EOF
 
 listen_min=""
 output=""
+name_title=""
+part_override=""
+offset_label=""
+out_dir="final_single_mp3_vol"
 target_min="60"
 volume_pct="100"
 speed_pct="100"
@@ -45,6 +67,22 @@ while [[ $# -gt 0 ]]; do
       ;;
     --output)
       output="${2:-}"
+      shift 2
+      ;;
+    --name-title)
+      name_title="${2:-}"
+      shift 2
+      ;;
+    --part)
+      part_override="${2:-}"
+      shift 2
+      ;;
+    --offset-label)
+      offset_label="${2:-}"
+      shift 2
+      ;;
+    --out-dir)
+      out_dir="${2:-}"
       shift 2
       ;;
     --target-min)
@@ -82,7 +120,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$listen_min" || -z "$output" || ${#sources[@]} -lt 1 ]]; then
+if [[ -z "$listen_min" || ${#sources[@]} -lt 1 || ( -z "$output" && -z "$name_title" ) ]]; then
   usage
   exit 1
 fi
@@ -112,12 +150,32 @@ if ! [[ "$speed_pct" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
   exit 1
 fi
 
+if [[ -n "$part_override" ]] && ! [[ "$part_override" =~ ^[0-9]+$ ]]; then
+  echo "Error: --part must be a positive integer."
+  exit 1
+fi
+
 for src in "${sources[@]}"; do
   if [[ ! -f "$src" ]]; then
     echo "Error: source file not found: $src"
     exit 1
   fi
 done
+
+trim_num_for_name() {
+  echo "$1" | sed -E 's/([0-9]*\.[0-9]*[1-9])0+$/\1/; s/\.0+$//'
+}
+
+infer_part_number() {
+  local src="$1"
+  local base
+  base="$(basename "$src")"
+  if [[ "$base" =~ [Pp]art[[:space:]_-]*0*([0-9]+) ]]; then
+    printf "%02d" "$((10#${BASH_REMATCH[1]}))"
+    return 0
+  fi
+  return 1
+}
 
 build_atempo_chain() {
   local factor="$1"
@@ -151,6 +209,33 @@ target_sec="$(awk -v m="$target_min" 'BEGIN { printf "%.6f", m*60 }')"
 volume_factor="$(awk -v p="$volume_pct" 'BEGIN { printf "%.6f", p/100 }')"
 speed_factor="$(awk -v p="$speed_pct" 'BEGIN { printf "%.10f", p/100 }')"
 atempo_chain="$(build_atempo_chain "$speed_factor")"
+
+if [[ -z "$output" ]]; then
+  part_num=""
+  if [[ -n "$part_override" ]]; then
+    part_num="$(printf "%02d" "$((10#$part_override))")"
+  else
+    if ! part_num="$(infer_part_number "${sources[0]}")"; then
+      echo "Error: cannot infer part number from source filename. Use --part."
+      exit 1
+    fi
+  fi
+
+  if [[ -z "$offset_label" ]]; then
+    offset_total_sec="$(awk -v m="$listen_min" 'BEGIN { printf "%d", (m*60)+0.5 }')"
+    offset_min=$((offset_total_sec / 60))
+    offset_sec=$((offset_total_sec % 60))
+    if [[ "$offset_sec" -eq 0 ]]; then
+      offset_label="$offset_min"
+    else
+      offset_label="${offset_min}m${offset_sec}s"
+    fi
+  fi
+
+  vol_tag="$(trim_num_for_name "$volume_pct")"
+  speed_tag="$(trim_num_for_name "$speed_pct")"
+  output="${out_dir%/}/${name_title} - P${part_num}+${offset_label}_vol${vol_tag}_speed${speed_tag}.mp3"
+fi
 
 input_args=()
 for idx in "${!sources[@]}"; do

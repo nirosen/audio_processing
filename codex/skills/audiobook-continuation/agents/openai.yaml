@@ -1,4 +1,4 @@
 interface:
   display_name: "Audiobook Continuation"
   short_description: "Create continuation tracks from listening progress"
-  default_prompt: "Use $audiobook-continuation to create the next continuation track from where I stopped listening."
+  default_prompt: "Use $audiobook-continuation to create the next continuation track from where I stopped, using naming: <Title> - P<part>+<offset>_vol<volume>_speed<speed>.mp3."

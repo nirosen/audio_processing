@@ -15,6 +15,23 @@ Run commands from `/Users/nrosen/code/audiobooks/audio_processing`.
 4. Run `./codex/create_continuation_track.sh` with required arguments.
 5. Validate resulting duration with `ffprobe`.
 
+## Output Naming Standard
+
+Default continuation filename format:
+
+`<Title> - P<part>+<offset>_vol<volume>_speed<speed>.mp3`
+
+Examples:
+- `Series Title - P03+15_vol200_speed100.mp3`
+- `Series Title - P04+66m43s_vol200_speed100.mp3`
+
+Rules:
+- `<part>` is the start part of the generated track (2-digit, e.g. `03`).
+- `<offset>` is listened position in that part:
+  - whole minute: `15`
+  - minute+seconds: `66m43s`
+- `<volume>` and `<speed>` are percentages passed to the command.
+
 ## Command Templates
 
 Single-source continuation:
@@ -30,24 +47,24 @@ Fixed-length continuation across parts:
 
 ```bash
 ./codex/create_continuation_track.sh \
-  --listen-min 40 \
+  --listen-min 15 \
   --target-min 60 \
   --volume-pct 200 \
-  --speed-pct 75 \
-  --output "final_single_mp3_vol/Continuation_40.end_200pct_75speed.mp3" \
-  "src_mp3_nesbo/Knife - Part 02.mp3" \
-  "src_mp3_nesbo/Knife - Part 03.mp3" \
-  "src_mp3_nesbo/Knife - Part 04.mp3"
+  --speed-pct 100 \
+  --name-title "Series Title" \
+  --part 3 \
+  "src_mp3_books/Part 03.mp3" \
+  "src_mp3_books/Part 04.mp3"
 ```
 
 Duration check:
 
 ```bash
-ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 "final_single_mp3_vol/Continuation_40.end_200pct_75speed.mp3"
+ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 "final_single_mp3_vol/Series Title - P03+15_vol200_speed100.mp3"
 ```
 
 ## Guardrails
 
 - Use numeric values for `--listen-min`, `--target-min`, `--volume-pct`, and `--speed-pct`.
 - Keep source files in playback order.
-- Prefer explicit output paths under `final_single_mp3_vol/`.
+- Prefer auto naming with `--name-title` (+ optional `--part`) to keep filenames consistent.
