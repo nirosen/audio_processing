@@ -13,9 +13,12 @@ Run commands from `/Users/nrosen/code/audiobooks/audio_processing`.
 2. Choose output mode:
    - Fixed-length mode: add `--target-min` (example: 60).
    - To-end mode: omit `--target-min` to run until all provided sources end.
-3. Order source files from current segment to subsequent parts.
-4. Run `./codex/create_continuation_track.sh` with required arguments.
-5. Validate resulting duration with `ffprobe`.
+3. Use original source-part files as inputs (not previously generated continuation files).
+4. Order source files from current segment to subsequent parts.
+5. If resuming from a completed progress file, map its endpoint to the original
+   source part timeline first, then cut from that exact original offset.
+6. Run `./codex/create_continuation_track.sh` with required arguments.
+7. Validate resulting duration with `ffprobe`.
 
 ## Output Naming Standard
 
@@ -73,6 +76,20 @@ To-end continuation (cut from point to end, then append next parts):
   "src_mp3_books/Part 06.mp3"
 ```
 
+Resume from a completed progress file endpoint (generic template):
+
+```bash
+./codex/create_continuation_track.sh \
+  --listen-min 30 \
+  --volume-pct 200 \
+  --speed-pct 100 \
+  --name-title "Series Title" \
+  --part 3 \
+  --offset-label "30_to_P04.end" \
+  "src_mp3_books/Part 03.mp3" \
+  "src_mp3_books/Part 04.mp3"
+```
+
 Duration check:
 
 ```bash
@@ -85,3 +102,5 @@ ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 "final_sing
 - Keep source files in playback order.
 - Prefer auto naming with `--name-title` (+ optional `--part`) to keep filenames consistent.
 - If the user says "to end then append", do not pass `--target-min`.
+- Do not feed generated continuation files into new continuation builds unless explicitly requested.
+- For resumed progress, always cut from the mapped original source offset and append next original parts.

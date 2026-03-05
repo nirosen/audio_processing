@@ -15,6 +15,8 @@ Generic scripts for audiobook trim/continuation workflows.
   - Supports two modes:
     - fixed-length cap via `--target-min`
     - uncapped to end of provided sources (omit `--target-min`)
+  - For "resume from progress file" cases, derive the resume offset on the
+    original source part and build from source parts only.
   - Supports volume and speed changes.
   - Supports auto naming format:
     `<Title> - P<part>+<offset>_vol<volume>_speed<speed>.mp3`
@@ -62,6 +64,14 @@ Create an uncapped continuation across parts (cut from point to end, then append
   "src_mp3/book_part_05.mp3" \
   "src_mp3/book_part_06.mp3"
 ```
+
+Resume rule used for verified progress files:
+
+1. Find where the finished progress file ends in the original part timeline.
+2. Start the next build from that original part offset.
+3. Append subsequent original parts in order.
+4. Do not use prior generated continuation files as input sources.
+5. For "to end then append", omit `--target-min`.
 
 Create a 60-minute continuation with automatic standardized naming:
 
