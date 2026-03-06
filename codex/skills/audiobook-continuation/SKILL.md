@@ -21,8 +21,10 @@ Run commands from `/Users/nrosen/code/audiobooks/audio_processing`.
    earlier part duration(s) and resume inside the next original part.
 7. Use the exact computed minute value for `--listen-min`, even if the filename
    offset is rounded to whole seconds.
-8. Run `./codex/create_continuation_track.sh` with required arguments.
-9. Validate resulting duration with `ffprobe`.
+8. If the user asks for playback only until the end of the current part, use
+   just that original part as input and omit `--target-min`.
+9. Run `./codex/create_continuation_track.sh` with required arguments.
+10. Validate resulting duration with `ffprobe`.
 
 ## Output Naming Standard
 
@@ -108,6 +110,19 @@ Resume after a capped file crossed into the next part:
   "src_mp3_books/Part 09.mp3"
 ```
 
+Resume from a mapped offset to the end of the current part only:
+
+```bash
+./codex/create_continuation_track.sh \
+  --listen-min 7.8073 \
+  --volume-pct 200 \
+  --speed-pct 100 \
+  --name-title "Series Title" \
+  --part 4 \
+  --offset-label "7m48s_to_P04.end" \
+  "src_mp3_books/Part 04.mp3"
+```
+
 Duration check:
 
 ```bash
@@ -120,6 +135,7 @@ ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 "final_sing
 - Keep source files in playback order.
 - Prefer auto naming with `--name-title` (+ optional `--part`) to keep filenames consistent.
 - If the user says "to end then append", do not pass `--target-min`.
+- If the user says "to the end" of the current part, do not pass `--target-min` and do not append later parts unless explicitly requested.
 - Do not feed generated continuation files into new continuation builds unless explicitly requested.
 - For resumed progress, always cut from the mapped original source offset and append next original parts.
 - When a prior capped file spans a part boundary, compute the carryover into the next part before building the next file.
