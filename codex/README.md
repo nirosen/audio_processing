@@ -72,6 +72,10 @@ Resume rule used for verified progress files:
 3. Append subsequent original parts in order.
 4. Do not use prior generated continuation files as input sources.
 5. For "to end then append", omit `--target-min`.
+6. If the finished file consumed all of one part and continued into the next,
+   carry the remaining seconds into the next part and start there.
+7. Use the exact computed offset for `--listen-min`; the filename label may be
+   rounded to the nearest second for readability.
 
 Create a 60-minute continuation with automatic standardized naming:
 
@@ -85,6 +89,20 @@ Create a 60-minute continuation with automatic standardized naming:
   --part 3 \
   "src_mp3/book_part_03.mp3" \
   "src_mp3/book_part_04.mp3"
+```
+
+Resume after a 60-minute file crossed from one part into the next:
+
+```bash
+./codex/create_continuation_track.sh \
+  --listen-min 6.681639583 \
+  --target-min 60 \
+  --volume-pct 200 \
+  --speed-pct 100 \
+  --name-title "Series Title" \
+  --part 8 \
+  "src_mp3/book_part_08.mp3" \
+  "src_mp3/book_part_09.mp3"
 ```
 
 Example output name:
