@@ -23,8 +23,11 @@ Run commands from `/Users/nrosen/code/audiobooks/audio_processing`.
    offset is rounded to whole seconds.
 8. If the user asks for playback only until the end of the current part, use
    just that original part as input and omit `--target-min`.
-9. Run `./codex/create_continuation_track.sh` with required arguments.
-10. Validate resulting duration with `ffprobe`.
+9. If that current-part remainder is too short, rebuild from the same original
+   offset and append the next original part(s) instead of chaining from the
+   generated short file.
+10. Run `./codex/create_continuation_track.sh` with required arguments.
+11. Validate resulting duration with `ffprobe`.
 
 ## Output Naming Standard
 
@@ -123,6 +126,20 @@ Resume from a mapped offset to the end of the current part only:
   "src_mp3_books/Part 04.mp3"
 ```
 
+Extend a short current-part remainder by appending the next part:
+
+```bash
+./codex/create_continuation_track.sh \
+  --listen-min 47.8073 \
+  --volume-pct 200 \
+  --speed-pct 100 \
+  --name-title "Series Title" \
+  --part 4 \
+  --offset-label "47m48s_to_P05.end" \
+  "src_mp3_books/Part 04.mp3" \
+  "src_mp3_books/Part 05.mp3"
+```
+
 Duration check:
 
 ```bash
@@ -136,6 +153,7 @@ ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 "final_sing
 - Prefer auto naming with `--name-title` (+ optional `--part`) to keep filenames consistent.
 - If the user says "to end then append", do not pass `--target-min`.
 - If the user says "to the end" of the current part, do not pass `--target-min` and do not append later parts unless explicitly requested.
+- If the current-part remainder is too short and the user asks for more, restart from the same original offset and append the next original part(s).
 - Do not feed generated continuation files into new continuation builds unless explicitly requested.
 - For resumed progress, always cut from the mapped original source offset and append next original parts.
 - When a prior capped file spans a part boundary, compute the carryover into the next part before building the next file.

@@ -55,6 +55,16 @@ Examples:
     "src_mp3/book_part_02.mp3" \
     "src_mp3/book_part_03.mp3" \
     "src_mp3/book_part_04.mp3"
+
+  ./codex/create_continuation_track.sh \
+    --listen-min 47.8073 \
+    --volume-pct 200 \
+    --speed-pct 100 \
+    --name-title "Series Title" \
+    --part 4 \
+    --offset-label "47m48s_to_P05.end" \
+    "src_mp3/Part 04.mp3" \
+    "src_mp3/Part 05.mp3"
 EOF
 }
 

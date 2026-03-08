@@ -78,6 +78,8 @@ Resume rule used for verified progress files:
    rounded to the nearest second for readability.
 8. If the user says "until the end" of the current part, use only that original
    part as input and omit `--target-min`.
+9. If that current-part remainder is too short and the user wants more,
+   rebuild from the same original offset and append the next original part(s).
 
 Create a 60-minute continuation with automatic standardized naming:
 
@@ -118,6 +120,20 @@ Resume from a mapped offset to the end of the current part only:
   --part 4 \
   --offset-label "7m48s_to_P04.end" \
   "src_mp3/book_part_04.mp3"
+```
+
+Extend a current-part remainder by appending the next part:
+
+```bash
+./codex/create_continuation_track.sh \
+  --listen-min 47.8073 \
+  --volume-pct 200 \
+  --speed-pct 100 \
+  --name-title "Series Title" \
+  --part 4 \
+  --offset-label "47m48s_to_P05.end" \
+  "src_mp3/book_part_04.mp3" \
+  "src_mp3/book_part_05.mp3"
 ```
 
 Example output name:
